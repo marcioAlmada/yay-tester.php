@@ -2,7 +2,7 @@
 declare(strict_types = 1);
 set_error_handler(function($errno, $errstr, $errfile, $errline){
     error_log("Error: \"{$errstr}\" at {$errfile}:{$errline}");
-    die('something went wrong, see log.');
+    throw new Exception("{$errstr} in {$errfile} at line {$errline}.");
 });
 
 require __DIR__ . "/vendor/autoload.php";
@@ -29,20 +29,24 @@ if (isset($_POST['code'])) {
     try {
         $converted_code = yay_parse($code);
 
-        try {
-            ob_start();
-            eval("?>" . $converted_code);
-            $output = ob_get_clean();
-        } catch (\Throwable $e) {
-            $output = 'Execute ERROR at line:' . $e->getLine() . PHP_EOL;
-            $output .= $e->getMessage();
-
-        }
-
     } catch (\Yay\YayParseError $e) {
-        $converted_code = 'Convert ERROR at line:' . $e->getLine() . PHP_EOL;
+        $converted_code = "YayParseError: " . (string) $e->getMessage();
+    }
+    catch (\Throwable $e) {
+        $converted_code = (string) $e;
         $converted_code .= $e->getMessage();
     }
+
+    try {
+        ob_start();
+        eval("?>" . $converted_code);
+        $output = ob_get_clean();
+        $converted_code = yay_pretty($converted_code);
+    }
+    catch (\Throwable $e) {
+        $output = (string) $e;
+    }
+
 } else {
     $filename = (string)($_GET['filename'] ?? 'unless');
     if (!preg_match('/\A[a-z]{1,32}\z/u', $filename)) throw new \Exception('invalid filename');
@@ -61,20 +65,64 @@ $_SESSION['csrf'] = $_SESSION['csrf'] ?? base64_encode(random_bytes(64));
     <script src="https://code.jquery.com/jquery-1.12.3.min.js" type="text/javascript" charset="utf-8"></script>
     <script src="ace_editor/ace.js" type="text/javascript" charset="utf-8"></script>
     <style type="text/css" media="screen">
-        #code {
-            width: 100%;
-            height: 200px;
+        html, body {
+          margin: 0;
+          height: 100%;
+          background: #eee;
         }
 
-        #converted_code, #output {
-            width: 100%;
-            height: 150px;
+        .top {
+            background: #ddd;
+            padding:15px;
+        }
+
+        #code, #converted_code, #output {
+            height: 100%;
+            font-size: 120%;
         }
 
         h2 {
-            margin-top: 0px;
-            margin-bottom: 0px;
+            margin: 0;
+            padding: 0;
         }
+
+        .top {
+
+        }
+
+        .grid {
+          min-height: 92%;
+          display: flex;
+          flex-wrap: wrap;
+          flex-direction: row;
+        }
+        .grid > .box {
+          display: flex;
+          flex-basis: calc(50% - 15px);
+          justify-content: center;
+          flex-direction: column;
+        }
+
+        .grid > .box:last-child {
+          display: flex;
+          margin-top: 0px;
+          flex-basis: calc(100% - 15px);
+          justify-content: center;
+          flex-direction: column;
+        }
+
+        .grid > .box > div {
+          display: flex;
+          justify-content: center;
+          flex-direction: row;
+        }
+
+        .box { margin: 10px 0 10px 10px;}
+        .box1 { background-color: red; }
+        .box2 { background-color: orange; }
+        .box3 { background-color: purple; }
+        .box4 { background-color: grey; }
+
     </style>
     <script>
         var editor;
@@ -112,14 +160,10 @@ $_SESSION['csrf'] = $_SESSION['csrf'] ?? base64_encode(random_bytes(64));
 </head>
 <body>
 
-<h2>input</h2>
-<form method="post" id="form">
-    <div id="code"><?php echo htmlspecialchars($code, ENT_QUOTES) ?></div>
-    <textarea name="code" id="code_textarea" style="display:none"></textarea>
+<form method="post" id="form" class="top">
     <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($_SESSION['csrf'], ENT_QUOTES) ?>">
-    <button type="button" onclick="run()">RUN (cmd|ctrl + enter)</button>
     <select onchange="changeSample(event);">
-        <option>load sample code</option>
+        <option>Samples</option>
         <?php
         $filename_list = array_map(function ($v) {
             preg_match('|sample/([a-z]{1,32}).php|u', $v, $_);
@@ -130,13 +174,27 @@ $_SESSION['csrf'] = $_SESSION['csrf'] ?? base64_encode(random_bytes(64));
         }
         ?>
     </select>
+    <button type="button" onclick="run()">YAY!</button>
+    <textarea name="code" id="code_textarea" style="display:none"></textarea>
 </form>
 
-<h2>preprocessed code</h2>
-<div id="converted_code"><?php echo htmlspecialchars($converted_code, ENT_QUOTES) ?></div>
+<div class="grid">
 
-<h2>output</h2>
-<div id="output"><?php echo htmlspecialchars($output, ENT_QUOTES) ?></div>
+    <div class="box">
+        <h2>Code</h2>
+        <div id="code"><?php echo htmlspecialchars($code, ENT_QUOTES) ?></div>
+    </div>
+
+    <div class="box">
+        <h2>Output Code</h2>
+        <div id="converted_code"><?php echo htmlspecialchars($converted_code, ENT_QUOTES) ?></div>
+    </div>
+
+    <div class="box">
+        <h2>Output</h2>
+        <div id="output"><?php echo htmlspecialchars($output, ENT_QUOTES) ?></div>
+        </div>
+    </div>
 
 </body>
 </html>
