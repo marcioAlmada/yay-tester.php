@@ -1,0 +1,41 @@
+#!/usr/bin/env php 
+<?php declare(strict_types=1);
+
+use Yay\{Engine};
+
+set_error_handler(function($errno, $errstr) {
+    throw new Exception($errstr, $errno);
+});
+
+(function(){
+    $autoloads = [
+        __DIR__ . '/../../../autoload.php', // as dependency
+        __DIR__ . '/../vendor/autoload.php', // as main package
+    ];
+
+    foreach ($autoloads as $file) if (file_exists($file) && is_readable($file)) {
+        require_once($file);
+
+        return;
+    }
+
+    throw new Exception('Could not find autoload file. Check your composer installation.');
+})();
+
+
+try {
+    $file = $argv[1] ?? '';
+
+    $source = file_get_contents($file) ?: file_get_contents('php://stdin');
+
+    gc_disable();
+
+    $expansion = (new Engine)->expand($source, $file);
+
+    gc_enable();
+
+    file_put_contents('php://stdout', $expansion);
+}
+catch (Exception $e) {
+    file_put_contents('php://stderr', $e . PHP_EOL);
+}

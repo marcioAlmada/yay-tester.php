@@ -1,0 +1,16 @@
+composer.lock
+tmp/
+build/
+vendor/
+tests/phpt/*.diff
+tests/phpt/*.out
+tests/phpt/*.php
+tests/phpt/*.exp
+tests/phpt/*.log
+tests/phpt/*.sh
+tests/phpt/*/*.diff
+tests/phpt/*/*.out
+tests/phpt/*/*.php
+tests/phpt/*/*.exp
+tests/phpt/*/*.log
+tests/phpt/*/*.sh
